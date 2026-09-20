@@ -116,15 +116,6 @@ const envSchema = z
     DEMO_MODE: raw.DEMO_MODE ? raw.DEMO_MODE === "true" : raw.NODE_ENV !== "production",
   }));
 
-const parsed = envSchema.safeParse(ENV);
-
-if (!parsed.success) {
-  const issues = parsed.error.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`).join("\n");
-  throw new Error(
-    `Invalid environment configuration:\n${issues}\n\nCopy .env.example to .env.local and fill in the missing values.`
-  );
-}
-
 /**
  * Zero-configuration demo hosting. On a serverless host with no database configured at all,
  * the app runs from the seeded SQLite snapshot shipped inside the deployment
@@ -140,6 +131,28 @@ if (!parsed.success) {
 const onVercel = Boolean(ENV.VERCEL);
 const databaseConfigured = Boolean(ENV.DATABASE_URL ?? TURSO_URL_ALIAS);
 const usesBundledSnapshot = onVercel && !databaseConfigured;
+
+/**
+ * In snapshot mode the deployment needs no variables at all, including SESSION_SECRET. The
+ * cookie key is derived from identifiers Vercel injects into every instance of a deployment,
+ * so all instances agree on it and it changes on redeploy (everyone signs in again — fine for
+ * a demo). This is deliberately confined to snapshot mode: there, every account and its shared
+ * password are already public in the repository, so an unguessable cookie key protects
+ * nothing extra; with a persistent database it is a real secret and stays mandatory.
+ * An explicit SESSION_SECRET always wins.
+ */
+const demoSessionSecret = usesBundledSnapshot
+  ? `biovolailles-demo-session:${ENV.VERCEL_DEPLOYMENT_ID ?? ENV.VERCEL_GIT_COMMIT_SHA ?? ENV.VERCEL_URL ?? ENV.VERCEL_PROJECT_PRODUCTION_URL ?? "unidentified-deployment"}`
+  : undefined;
+
+const parsed = envSchema.safeParse({ ...ENV, SESSION_SECRET: ENV.SESSION_SECRET ?? demoSessionSecret });
+
+if (!parsed.success) {
+  const issues = parsed.error.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`).join("\n");
+  throw new Error(
+    `Invalid environment configuration:\n${issues}\n\nCopy .env.example to .env.local and fill in the missing values.`
+  );
+}
 
 if (onVercel && databaseConfigured && parsed.data.DATABASE_URL.startsWith("file:")) {
   throw new Error(

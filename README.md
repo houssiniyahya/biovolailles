@@ -56,20 +56,22 @@ it from scratch.
 
 ## Deploying to Vercel
 
-Import the repository, add **one** environment variable, deploy. That is the whole procedure for a
-demo — no database to provision.
+Import the repository and deploy. That is the whole procedure for a demo — no database to provision
+and **no environment variables required**.
 
 ### Zero-config demo (the default)
 
-1. **Settings → Environment Variables** → add `SESSION_SECRET`: any random string of 32+ characters.
-
-   ```bash
-   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-   ```
-
-2. Do **not** create `DATABASE_URL`, `DATABASE_AUTH_TOKEN` or `APP_URL`. (Creating them and leaving
+1. Do **not** create `DATABASE_URL`, `DATABASE_AUTH_TOKEN` or `APP_URL`. (Creating them and leaving
    them blank is treated the same as not creating them.)
-3. **Redeploy.**
+2. **Deploy.**
+
+Optionally add `SESSION_SECRET` (any random string of 32+ characters) so sign-ins survive a
+redeploy; without it, a key is derived from the deployment's identity and everyone simply signs in
+again after each deploy.
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
 
 Every visitor to the link gets the complete demo dataset — the six accounts in
 [DEMO_RUNBOOK.md](DEMO_RUNBOOK.md) §1, 12 lots, the IoT history, the anomaly scenario, the public QR
