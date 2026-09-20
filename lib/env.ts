@@ -126,19 +126,33 @@ if (!parsed.success) {
 }
 
 /**
- * A `file:` database is a local development convenience only. Serverless hosts give each
- * invocation a fresh, read-only filesystem, so a file database there is silently empty on
- * every request — and `.db` files are gitignored, so nothing would be deployed anyway.
- * Failing the build with an actionable message beats a deployment that 500s on every page.
+ * Zero-configuration demo hosting. On a serverless host with no database configured at all,
+ * the app runs from the seeded SQLite snapshot shipped inside the deployment
+ * (data/demo/snapshot.db), copied to the function's writable temp directory on first use —
+ * see data/db/client.ts. Every visitor gets the full demo dataset and can sign in; writes
+ * survive only as long as that instance stays warm, so the demo quietly resets itself.
+ *
+ * Only the *unconfigured* case takes this path. An explicit `file:` URL on Vercel is a
+ * misconfiguration (ephemeral, read-only filesystem — the file would be empty on every
+ * request) and still fails the build with an actionable message; a libsql:// URL, whether set
+ * by hand or injected by the Turso integration, is honoured as the persistent database.
  */
-if (process.env.VERCEL && parsed.data.DATABASE_URL.startsWith("file:")) {
+const onVercel = Boolean(ENV.VERCEL);
+const databaseConfigured = Boolean(ENV.DATABASE_URL ?? TURSO_URL_ALIAS);
+const usesBundledSnapshot = onVercel && !databaseConfigured;
+
+if (onVercel && databaseConfigured && parsed.data.DATABASE_URL.startsWith("file:")) {
   throw new Error(
     [
       "DATABASE_URL points at a local file database, which cannot work on Vercel (ephemeral, read-only filesystem).",
-      "Set DATABASE_URL to a remote libSQL/Turso URL (libsql://…) and DATABASE_AUTH_TOKEN to its token.",
-      'See README.md → "Deploying to Vercel".',
+      "Either remove DATABASE_URL to run the bundled demo snapshot, or set it to a remote libSQL/Turso URL",
+      "(libsql://…) with DATABASE_AUTH_TOKEN for a persistent database. See README.md → \"Deploying to Vercel\".",
     ].join("\n")
   );
 }
 
-export const env = parsed.data;
+export const env = {
+  ...parsed.data,
+  /** True when the deployment should run from the bundled demo snapshot instead of DATABASE_URL. */
+  DATABASE_SNAPSHOT: usesBundledSnapshot,
+};

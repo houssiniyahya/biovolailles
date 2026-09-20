@@ -1,3 +1,6 @@
+import { copyFileSync, existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { createClient, type Client } from "@libsql/client";
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
 import { env } from "../../lib/env";
@@ -13,8 +16,30 @@ declare global {
   var __biovolailles_db__: { client: Client; db: LibSQLDatabase<typeof schema> } | undefined;
 }
 
+/** Seeded demo database committed to the repo and traced into the deployment (next.config.ts). */
+const SNAPSHOT_SOURCE = path.join(process.cwd(), "data", "demo", "snapshot.db");
+
+/**
+ * Where the database actually lives for this process. In snapshot mode (lib/env.ts) the
+ * bundled file sits on a read-only filesystem, and SQLite needs to write even to *read* safely
+ * (journals, locks) — so the first use copies it into the platform temp directory, the one
+ * writable place a serverless function has. Later uses in the same warm instance find the copy
+ * already there and keep it, writes included; a cold start begins again from the pristine
+ * snapshot. Synchronous on purpose: this runs once at module evaluation, before any query can
+ * race it.
+ */
+function resolveDatabaseUrl(): string {
+  if (!env.DATABASE_SNAPSHOT) return env.DATABASE_URL;
+  const target = path.join(tmpdir(), "biovolailles-demo.db");
+  if (!existsSync(target)) copyFileSync(SNAPSHOT_SOURCE, target);
+  // Forward slashes: libSQL parses `file:` URLs as URLs, and a Windows backslash path fails there.
+  return `file:${target.split(path.sep).join("/")}`;
+}
+
+const databaseUrl = resolveDatabaseUrl();
+
 /** A local file database vs. a remote libSQL/Turso one — the two differ in how FKs get enabled. */
-const isLocalFileDatabase = env.DATABASE_URL.startsWith("file:");
+const isLocalFileDatabase = databaseUrl.startsWith("file:");
 
 /** Foreign keys are OFF by default per SQLite connection — must be enabled explicitly. */
 export async function enableForeignKeys(client: Client): Promise<void> {
@@ -22,7 +47,7 @@ export async function enableForeignKeys(client: Client): Promise<void> {
 }
 
 function createDb() {
-  const client = createClient({ url: env.DATABASE_URL, authToken: env.DATABASE_AUTH_TOKEN });
+  const client = createClient({ url: databaseUrl, authToken: env.DATABASE_AUTH_TOKEN });
   if (isLocalFileDatabase) {
     // Fire-and-forget: a local connection executes commands in submission order, so every
     // later query is already covered. `.catch` because an unhandled rejection here would
