@@ -1,26 +1,129 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * BIOVOLAILLES design tokens — Tailwind v4 CSS-first (@theme), no tailwind.config.js.
+ * Palette and font are fixed by ARCHITECTURE.md; do not introduce another visual identity.
+ */
+@theme {
+  --color-deep-forest: #12372a;
+  --color-forest: #174735;
+  --color-deep-green: #205d42;
+  --color-bio-green: #2f7d4a;
+  --color-natural-green: #4e9860;
+  --color-fresh-green: #6faf5b;
+
+  --color-ink: #14201a;
+  --color-text: #1c2922;
+  --color-secondary: #52605a;
+  --color-muted: #7a8780;
+  --color-background: #f4f7f3;
+  --color-surface: #ffffff;
+  --color-border: #dde5de;
+
+  --color-success: #2e8b57;
+  --color-warning: #d99a2b;
+  --color-critical: #c94a4a;
+  --color-info: #3d78a8;
+
+  --color-gold: #e8c66a;
+
+  /*
+   * AA text variants of the four semantic colors above. Not a second palette — each is the
+   * SAME hue, darkened until it clears WCAG AA (4.5:1) as text on both --color-surface and
+   * --color-background. The base tones measure 2.4:1 (warning), 4.2:1 (success) and 4.3:1
+   * (critical/info on --color-background), so using them for words fails contrast. Rule:
+   * base tone for fills, borders, icons and chart series; -strong for any text that carries
+   * meaning. Verified with scripts/check-contrast.ts.
+   */
+  --color-success-strong: #237045;
+  --color-warning-strong: #8a5d13;
+  --color-critical-strong: #a83232;
+  --color-info-strong: #2f6088;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /*
+   * Two steps below Tailwind's text-xs, for badge/caption furniture. They exist so screens
+   * stop reaching for text-[10px]/text-[11px] one-offs — the scale is the system.
+   */
+  --text-micro: 0.625rem;
+  --text-micro--line-height: 0.875rem;
+  --text-caption: 0.6875rem;
+  --text-caption--line-height: 1rem;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/*
+ * Semantic type scale (§5). Screens use these instead of re-picking size/weight/tracking per
+ * page, which is how hierarchy stayed inconsistent across routes before.
+ */
+@utility text-page-title {
+  font-size: 1.5rem;
+  line-height: 1.875rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@utility text-section-title {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+}
+
+@utility text-card-title {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/** Small uppercase field/stat label. One definition, so tracking + size never drift. */
+@utility text-overline {
+  font-size: var(--text-caption);
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-secondary);
+}
+
+/** KPI/stat number: visually strong, deliberately not oversized (§5). */
+@utility text-metric {
+  font-size: 1.5rem;
+  line-height: 1.875rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+/**
+ * The one focus treatment in the app (§18/§19). Applied to every interactive element,
+ * including the Links and cards that previously had no visible keyboard focus at all.
+ */
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--color-bio-green);
+    outline-offset: 2px;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+}
+
+/* Motion is opt-out everywhere, per §10 ("only when it adds meaning"). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

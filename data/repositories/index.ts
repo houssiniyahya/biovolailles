@@ -1,0 +1,70 @@
+import { DrizzleActionRecordRepository } from "./action-record.repository";
+import { DrizzleAlertRepository } from "./alert.repository";
+import { DrizzleAnomalyRepository } from "./anomaly.repository";
+import { DrizzleAuditLogRepository } from "./audit-log.repository";
+import { DrizzleBuildingRepository } from "./building.repository";
+import { DrizzleCollectionRepository } from "./collection.repository";
+import { DrizzleCooperativeRepository } from "./cooperative.repository";
+import { DrizzleDestinationRepository } from "./destination.repository";
+import { DrizzleDeviceRepository } from "./device.repository";
+import { DrizzleEnvironmentMeasurementRepository } from "./environment-measurement.repository";
+import { DrizzleFarmRepository } from "./farm.repository";
+import { DrizzleFeedUsageRepository } from "./feed-usage.repository";
+import { DrizzleKpiDefinitionRepository } from "./kpi-definition.repository";
+import { DrizzleKpiValueRepository } from "./kpi-value.repository";
+import { DrizzleLotEventRepository } from "./lot-event.repository";
+import { DrizzleLotRepository } from "./lot.repository";
+import { DrizzleMeasurementRepository } from "./measurement.repository";
+import { DrizzleMortalityRecordRepository } from "./mortality-record.repository";
+import { DrizzleOrganizationRepository } from "./organization.repository";
+import { DrizzleProducerRepository } from "./producer.repository";
+import { DrizzleProductRepository } from "./product.repository";
+import { DrizzleQrTokenRepository } from "./qr-token.repository";
+import { DrizzleRelationRepository } from "./relation.repository";
+import { DrizzleRuleRepository } from "./rule.repository";
+import { DrizzleSensorRepository } from "./sensor.repository";
+import { DrizzleSlaughterBatchRepository } from "./slaughter-batch.repository";
+import { DrizzleTransformationBatchRepository } from "./transformation-batch.repository";
+import { DrizzleUserRepository } from "./user.repository";
+import { DrizzleWaterUsageRepository } from "./water-usage.repository";
+import { DrizzleWeightMeasurementRepository } from "./weight-measurement.repository";
+
+/**
+ * Repository factory — the single place application code (services, Server Actions)
+ * gets repository instances. Components and services depend on the domain interfaces
+ * (imported from domain/*\/repositories.ts), never on these Drizzle classes directly,
+ * so swapping the backing store later means changing only this file.
+ * No `import "server-only"` — also imported by the standalone seed script (see lib/env.ts).
+ */
+export const repositories = {
+  organizations: new DrizzleOrganizationRepository(),
+  cooperatives: new DrizzleCooperativeRepository(),
+  producers: new DrizzleProducerRepository(),
+  farms: new DrizzleFarmRepository(),
+  buildings: new DrizzleBuildingRepository(),
+  users: new DrizzleUserRepository(),
+  lots: new DrizzleLotRepository(),
+  lotEvents: new DrizzleLotEventRepository(),
+  auditLog: new DrizzleAuditLogRepository(),
+  feedUsage: new DrizzleFeedUsageRepository(),
+  waterUsage: new DrizzleWaterUsageRepository(),
+  weightMeasurements: new DrizzleWeightMeasurementRepository(),
+  mortalityRecords: new DrizzleMortalityRecordRepository(),
+  environmentMeasurements: new DrizzleEnvironmentMeasurementRepository(),
+  devices: new DrizzleDeviceRepository(),
+  sensors: new DrizzleSensorRepository(),
+  measurements: new DrizzleMeasurementRepository(),
+  kpiDefinitions: new DrizzleKpiDefinitionRepository(),
+  kpiValues: new DrizzleKpiValueRepository(),
+  rules: new DrizzleRuleRepository(),
+  anomalies: new DrizzleAnomalyRepository(),
+  alerts: new DrizzleAlertRepository(),
+  actionRecords: new DrizzleActionRecordRepository(),
+  collections: new DrizzleCollectionRepository(),
+  slaughterBatches: new DrizzleSlaughterBatchRepository(),
+  transformationBatches: new DrizzleTransformationBatchRepository(),
+  products: new DrizzleProductRepository(),
+  destinations: new DrizzleDestinationRepository(),
+  relations: new DrizzleRelationRepository(),
+  qrTokens: new DrizzleQrTokenRepository(),
+};

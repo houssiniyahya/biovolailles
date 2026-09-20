@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1786881392038,
+      "tag": "0000_careless_colonel_america",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1786891943608,
+      "tag": "0001_left_stardust",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786898140312,
+      "tag": "0002_lying_johnny_storm",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1786908794390,
+      "tag": "0003_volatile_galactus",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1786919634139,
+      "tag": "0004_petite_network",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1786923846541,
+      "tag": "0005_curvy_sumo",
+      "breakpoints": true
+    }
+  ]
+}
