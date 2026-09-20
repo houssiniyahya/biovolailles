@@ -50,107 +50,109 @@ it from scratch.
 | `npm run db:migrate` | Apply migrations to whatever `DATABASE_URL` points at               |
 | `npm run db:seed`    | Load the demo dataset                                               |
 | `npm run db:reset`   | Delete the local database file, re-migrate, re-seed (local only)    |
+| `npm run db:deploy`  | Migrate **and** seed a hosted database in one step (refuses `file:`) |
 
 ---
 
 ## Deploying to Vercel
 
-Next.js itself needs no configuration to run on Vercel. **The database does.** The app stores data
-in libSQL, which locally is a plain SQLite file — and a serverless filesystem is ephemeral and
-read-only, so a file database on Vercel would be empty on every request (and `.db` files are
-gitignored, so nothing would be uploaded in the first place).
+Next.js needs no configuration here. **The database does.** The app stores data in libSQL, which
+locally is a plain SQLite file — and a serverless filesystem is ephemeral and read-only, so a file
+database on Vercel would be empty on every request (and `.db` files are gitignored, so nothing would
+be uploaded anyway). Production points the same driver at a hosted libSQL database
+([Turso](https://turso.tech)); the schema, the SQL and the migrations are unchanged.
 
-The fix is to point the same libSQL driver at a hosted libSQL database — [Turso](https://turso.tech).
-The SQL, the schema, and the migrations are unchanged; only the connection URL differs. The app
-**refuses to boot on Vercel with a `file:` URL** rather than serving a silently empty database, so a
-misconfiguration fails the build with a clear message instead of reaching users.
+Four steps, about five minutes.
 
-### 1. Create the hosted database
+### 1. Create the database
+
+Either from the Vercel dashboard (**Storage → Browse Marketplace → Turso**), which provisions it and
+injects the credentials into the project for you — the app reads whatever variable names that
+integration chooses, so there is nothing to configure afterwards — or from the Turso CLI:
 
 ```bash
-# https://docs.turso.tech/quickstart
 turso db create biovolailles
 turso db show biovolailles --url        # -> libsql://biovolailles-<org>.turso.io
 turso db tokens create biovolailles     # -> the auth token
 ```
 
-Pick a database location near your Vercel region — every page renders server-side, so the
-round-trip between the function and the database is the dominant latency.
+Pick a database location near your Vercel region: every page renders server-side, so the round trip
+between function and database is the dominant latency.
 
-### 2. Migrate and seed it, once, from your machine
-
-Point the migrate and seed scripts at the hosted database **using shell variables**. This matters:
-these scripts load `.env.local` and `.env`, and neither file can override a variable that is already
-set in the shell — so a shell variable reliably wins, while editing a file would not (your existing
-`.env.local` would keep pointing at the local file, and you would seed your laptop instead of Turso
-without noticing).
-
-PowerShell (Windows):
+### 2. Fill it — one command
 
 ```powershell
+# PowerShell (Windows)
 $env:DATABASE_URL="libsql://biovolailles-<org>.turso.io"
 $env:DATABASE_AUTH_TOKEN="<token>"
-npm run db:migrate
-npm run db:seed
+npm run db:deploy
 ```
-
-bash/zsh (macOS, Linux):
 
 ```bash
+# bash / zsh
 export DATABASE_URL="libsql://biovolailles-<org>.turso.io"
 export DATABASE_AUTH_TOKEN="<token>"
-npm run db:migrate
-npm run db:seed
+npm run db:deploy
 ```
 
-Use a fresh terminal for this, and close it afterwards, so the token and the remote URL don't leak
-into a later `npm run dev`.
+`db:deploy` applies every migration and then loads the demo dataset, printing the host it is writing
+to first. It **refuses to run against a local file database**, so it cannot quietly seed your laptop
+instead of the deployment — the failure mode that makes this step worth a dedicated command.
 
-`SESSION_SECRET` is read from your existing `.env.local`; these two scripts don't otherwise use it.
+Set these in the shell, not in `.env.local`: these scripts read `.env.local` and `.env`, and neither
+file can override a variable already present in the shell. Use a throwaway terminal so the token
+doesn't linger into a later `npm run dev`.
 
-Seeding writes ~1,100 rows one at a time, so over a network connection it takes a minute or two
-rather than the second it takes locally. It is a one-off — re-running `db:seed` against a database
-that already has data does nothing.
+Seeding writes ~1,100 rows one at a time, so it takes a minute or two over the network. It is a
+one-off; re-running it against a non-empty database does nothing.
 
-To confirm it landed in the right place: `turso db shell biovolailles "SELECT COUNT(*) FROM lots;"`
-should report 12.
+### 3. Set the environment variables in Vercel
 
-### 3. Import the repo into Vercel
+**Project Settings → Environment Variables**, for Production (and Preview, if you use it):
 
-New Project → import this repository. Framework preset, build command, and output directory are all
-detected automatically — accept the defaults.
+| Variable              | Value                                                                |
+| --------------------- | -------------------------------------------------------------------- |
+| `SESSION_SECRET`      | a fresh 32+ character random string — **not** the one from your laptop |
+| `DATABASE_URL`        | `libsql://biovolailles-<org>.turso.io`                               |
+| `DATABASE_AUTH_TOKEN` | the Turso token                                                      |
 
-### 4. Set the environment variables
+Generate the secret with:
 
-In **Project Settings → Environment Variables** (Production, and Preview if you use it):
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
 
-| Variable              | Value                                                                  |
-| --------------------- | ---------------------------------------------------------------------- |
-| `DATABASE_URL`        | `libsql://biovolailles-<org>.turso.io`                                 |
-| `DATABASE_AUTH_TOKEN` | the Turso token                                                        |
-| `SESSION_SECRET`      | a **new** 32+ character random value — not the one from your laptop    |
-| `APP_URL`             | *Only if you use a custom domain.* Otherwise leave it unset.           |
+If the Turso marketplace integration provisioned the database, it already injected the URL and token
+— only `SESSION_SECRET` is left to add.
 
-`SESSION_SECRET` is validated at build time, so a missing one fails the build rather than the first
-login.
+> **These are required at build time, not just at runtime.** `lib/env.ts` validates the environment
+> when the module is first evaluated, which happens during `next build`. A missing `SESSION_SECRET`
+> fails the build with `Failed to collect page data`, and the deployment never appears. If Vercel
+> shows *No Production Deployment*, check this first — it is the most likely cause.
 
-`APP_URL` is the absolute origin encoded into QR passports. Left unset on Vercel it is derived from
-the deployment's own URL, so production and preview deployments each link back to themselves. Set it
-explicitly once you serve the app from a custom domain, otherwise printed QR codes will point at the
-`*.vercel.app` hostname.
+`APP_URL` is deliberately absent: left unset on Vercel it is derived from the project's production
+domain, so QR passports encode a stable URL even when minted from a preview deployment — which is
+what you want for a code that gets printed and outlives the deployment. Set `APP_URL` explicitly
+only once you serve the app from a custom domain.
 
-Do **not** set `DEMO_MODE` on Vercel. It defaults to off in production, which is what you want: it
-gates the destructive demo reset, and that reset replays the entire seed — far slower than a
-serverless function is allowed to run. Use it on a local demo machine instead.
+Don't set `DEMO_MODE`. It defaults to off in production, which is what you want — it gates the
+destructive demo reset, and that reset replays the entire seed, far longer than a serverless function
+is allowed to run. Keep it for a local demo machine.
 
-### 5. Deploy
+### 4. Deploy
 
-Push to the default branch, or hit Deploy. Every route that reads data is server-rendered on demand,
-so no database connection is needed during the build itself.
+Push to `master`, or hit **Redeploy** in the Vercel dashboard. Every route that reads data is
+server-rendered on demand, so the build itself never needs to reach the database — a build can
+succeed before step 2 has run.
+
+Then open the deployment and sign in with a demo account (see [DEMO_RUNBOOK.md](DEMO_RUNBOOK.md) §1).
 
 ### Deploying somewhere else
 
-Nothing above is Vercel-specific except step 3. Any Node.js host works with `npm run build` &&
-`npm run start`. A host with a persistent writable disk (a VM, a container with a volume, Fly.io) can
-keep the `file:` SQLite database and skip Turso entirely — set `DATABASE_URL` to a path on the
-mounted volume.
+Only step 3 is Vercel-specific — everywhere else, set the same three variables however that host
+does it. Any Node.js host works with `npm run build` && `npm run start`.
+
+A host with a persistent writable disk (a VM, a container with a volume, Fly.io) can keep the `file:`
+SQLite database and skip Turso entirely: point `DATABASE_URL` at a path on the mounted volume and run
+`npm run db:migrate && npm run db:seed` there once. The build-time guard that rejects a `file:` URL
+only applies on Vercel.
