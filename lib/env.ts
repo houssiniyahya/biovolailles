@@ -16,6 +16,18 @@ import { z } from "zod";
  * node:crypto) that Turbopack already refuses to bundle for the client.
  */
 /**
+ * A variable created in a hosting dashboard but left blank arrives as `""`, not as absent —
+ * and zod's `.default()` only fills in `undefined`. Untreated, a blank DATABASE_URL fails
+ * `min(1)` and a blank APP_URL fails `.url()` instead of falling back to the value that would
+ * have applied had the variable never been created at all. The two states look identical in a
+ * dashboard, and the difference fails the *build*, so blank is normalised to absent here —
+ * once, at the top, so every lookup below sees the same view of the environment.
+ */
+const ENV: Record<string, string | undefined> = Object.fromEntries(
+  Object.entries(process.env).filter(([, value]) => !(typeof value === "string" && value.trim() === ""))
+);
+
+/**
  * Vercel injects its hostnames without a scheme, so this adds one, and a production deploy then
  * needs no manual APP_URL at all. An explicit APP_URL always wins over this.
  *
@@ -27,7 +39,7 @@ import { z } from "zod";
  * VERCEL_URL is only the fallback for environments where the production domain isn't exposed.
  */
 function vercelOrigin(): string | undefined {
-  const host = process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL;
+  const host = ENV.VERCEL_PROJECT_PRODUCTION_URL ?? ENV.VERCEL_URL;
   return host ? `https://${host}` : undefined;
 }
 
@@ -42,10 +54,10 @@ function vercelOrigin(): string | undefined {
  * hijacked by a stray integration variable.
  */
 function injectedLibsqlCredentials(): { url?: string; authToken?: string } {
-  const named = process.env.TURSO_DATABASE_URL ?? process.env.TURSO_CONNECTION_URL;
-  if (named) return { url: named, authToken: process.env.TURSO_AUTH_TOKEN };
+  const named = ENV.TURSO_DATABASE_URL ?? ENV.TURSO_CONNECTION_URL;
+  if (named) return { url: named, authToken: ENV.TURSO_AUTH_TOKEN };
 
-  const found = Object.entries(process.env).find(
+  const found = Object.entries(ENV).find(
     ([, value]) => typeof value === "string" && value.startsWith("libsql://")
   );
   if (!found) return {};
@@ -55,7 +67,7 @@ function injectedLibsqlCredentials(): { url?: string; authToken?: string } {
   return {
     url,
     authToken:
-      process.env[`${prefix}AUTH_TOKEN`] ?? process.env[`${prefix}TOKEN`] ?? process.env.TURSO_AUTH_TOKEN,
+      ENV[`${prefix}AUTH_TOKEN`] ?? ENV[`${prefix}TOKEN`] ?? ENV.TURSO_AUTH_TOKEN,
   };
 }
 
@@ -104,7 +116,7 @@ const envSchema = z
     DEMO_MODE: raw.DEMO_MODE ? raw.DEMO_MODE === "true" : raw.NODE_ENV !== "production",
   }));
 
-const parsed = envSchema.safeParse(process.env);
+const parsed = envSchema.safeParse(ENV);
 
 if (!parsed.success) {
   const issues = parsed.error.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`).join("\n");
